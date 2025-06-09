@@ -1,0 +1,7 @@
+anatra.py
+setup.py
+anatra.egg-info/PKG-INFO
+anatra.egg-info/SOURCES.txt
+anatra.egg-info/dependency_links.txt
+anatra.egg-info/entry_points.txt
+anatra.egg-info/top_level.txt

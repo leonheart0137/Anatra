@@ -1,0 +1,3 @@
+[console_scripts]
+anatra = anatra:main
+
