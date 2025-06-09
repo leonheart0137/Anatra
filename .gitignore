@@ -1,4 +1,5 @@
 __pycache__/
+anatra.egg-info/
 *.pyc
 .env
 *.log

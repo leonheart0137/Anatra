@@ -9,4 +9,9 @@ setup(
             'anatra = anatra:main',
         ],
     },
+    install_requires=[
+        'platformdirs',
+        # other dependencies...
+    ],
 )
+
