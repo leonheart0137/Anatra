@@ -64,8 +64,8 @@ from rich.panel import Panel
 from rich.align import Align
 from rich.table import Table
 import winsound
-#init(autoreset=True)
-init()
+
+init(autoreset=True)
 console = Console()
 
 config_folder = "files"
@@ -119,7 +119,6 @@ def main():
         description="Anatra Timer CLI",
         usage="anatra <hours> <minutes> <seconds> <category> <emoji> <title> [log | -v | --version]"
     )
-    #parser.add_argument('--version', action='version', version='Anatra 1.0.0')
     parser.add_argument('-v', '-V', '--version', action='store_true', help='Show version and exit')
     parser.add_argument('args', nargs='*', help='Timer parameters or the "log" command')
     args = parser.parse_args()
@@ -139,28 +138,6 @@ def main():
     # Get and remove the next message
     selected_message = messages_left.pop()
     save_message_state(messages_left)
-    
-    # Use selected_message
-    #text, gif = selected_message
-    #print(f"Message: {text}, Image: {gif}")
-    
-    #selected_message = random.choice(achievement_messages)
-    
-    #def print_log_table(csv_path):
-    #    console = Console()
-    #    table = Table(show_header=True)
-    #    header_colors = ["white", "green", "bright_white", "cyan", "white"]
-    #    
-    #    # Read CSV and add columns dynamically
-    #    with open(csv_path, newline='', encoding='utf-8') as csvfile:
-    #        reader = csv.reader(csvfile)
-    #        headers = next(reader)
-    #        for i, header in enumerate(headers):
-    #            color = header_colors[i % len(header_colors)]
-    #            table.add_column(header, header_style=f"bold {color}", style=f"bold {color}")
-    #        for row in reader:
-    #            table.add_row(*row)
-    #    console.print(table)
     
     def print_log_table(csv_path, max_rows=20):
         console = Console()
