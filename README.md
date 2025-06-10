@@ -38,14 +38,14 @@ Anatra currrently just supports Windows.
 ## 🔧 Installation
 ### ✅ Clone the Repository
 ```bash
-git clone https://github.com/YOUR_USERNAME/anatra.git
-cd anatra
+git clone https://github.com/leonheart0137/Anatra.git
+cd Anatra
 ```
 
 ### ✅ Create and Activate a Virtual Environment
 ```bash
 python -m venv .venv
-.venv\Scripts\Activate.ps1
+.venv\Scripts\activate
 ```
 
 ### ✅ Install Dependencies
@@ -58,9 +58,32 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
+## If ?? in Emojis
+If this happen, download again the project and after activating .venv do:
+```bash
+set PYTHONUTF8=1
+chcp 65001
+```
+
 ## 🚀 Usage
+### Timer
 ```bash
 anatra <hours> <minutes> <seconds> <category> <emoji> <title>
+```
+
+### Stopwatch
+```bash
+anatra run <category> <emoji> <title...>
+```
+
+### Logs of tasks
+```bash
+anatra log
+```
+
+### Help
+```bash
+anatra --help
 ```
 
 ## Examples

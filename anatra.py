@@ -64,6 +64,7 @@ from rich.panel import Panel
 from rich.align import Align
 from rich.table import Table
 import winsound
+import msvcrt
 
 init(autoreset=True)
 console = Console()
@@ -115,12 +116,18 @@ def save_message_state(state):
         json.dump(state, f)
 
 def main():
+    runner = False
     parser = argparse.ArgumentParser(
         description="Anatra Timer CLI",
-        usage="anatra <hours> <minutes> <seconds> <category> <emoji> <title> [log | -v | --version]"
+        usage='''
+        anatra <hours> <minutes> <seconds> <category> <emoji> <title...>
+        anatra run <category> <emoji> <title...>
+        anatra log'''
     )
     parser.add_argument('-v', '-V', '--version', action='store_true', help='Show version and exit')
-    parser.add_argument('args', nargs='*', help='Timer parameters or the "log" command')
+    parser.add_argument('args', nargs='*', help='Timer parameters')
+    parser.add_argument('run', nargs='*', help='Runs a stopwatch until you press "s"')
+    parser.add_argument('log', nargs='*', help='Returns log file of taks')
     args = parser.parse_args()
 
     if args.version:
@@ -170,24 +177,42 @@ def main():
         console.print(table)
     
     if args.args and args.args[0] == "log":
+        if len(args.args) < 1:
+            parser.print_help()
+            sys.exit(1)
         print_log_table(log_file)
         sys.exit(0)
 
-    if len(args.args) < 6:
-        parser.print_help()
-        sys.exit(1)
-    
-    try:
-        hours = int(args.args[0])
-        minutes = int(args.args[1])
-        seconds = int(args.args[2])
-    except ValueError:
-        print("Hours, minutes, and seconds must be integers.")
-        sys.exit(1)
+    if args.args and args.args[0] == "run":
+        runner = True
+        if len(args.args) < 4:
+            parser.print_help()
+            sys.exit(1)
+    else:
+        if len(args.args) < 6:
+            parser.print_help()
+            sys.exit(1)
 
-    category = args.args[3]
-    emoji = args.args[4]
-    title = " ".join(args.args[5:]) 
+    hours = 0
+    minutes = 0
+    seconds = 0
+
+    if runner == False:
+        try:
+            hours = int(args.args[0])
+            minutes = int(args.args[1])
+            seconds = int(args.args[2])
+        except ValueError:
+            print("Hours, minutes, and seconds must be integers.")
+            sys.exit(1)
+
+        category = args.args[3]
+        emoji = args.args[4]
+        title = " ".join(args.args[5:]) 
+    else:
+        category = args.args[1]
+        emoji = args.args[2]
+        title = " ".join(args.args[3:]) 
     
     def readable_duration(hours, minutes, seconds):
         parts = []
@@ -226,44 +251,90 @@ def main():
     
     sys.stdout.write(f"\033[{lines_to_move_up}A")  # Move cursor up
     sys.stdout.flush()
-    try:
-        for remaining in range(total_seconds, -1, -1):
-            h = remaining // 3600
-            m = (remaining % 3600) // 60
-            s = remaining % 60
-            time_str = f"{h:02}:{m:02}:{s:02}"
-        
-            # Build updated timer text (same length to avoid flicker)
-            updated_text = f"{static_message} {time_str}  "
-        
-            # Create new line keeping the box borders intact by replacing text inside
-            new_line = f"{Fore.CYAN}│{Style.RESET_ALL}   {updated_text}   {Fore.CYAN}│{Style.RESET_ALL}"
-            # Overwrite the line in-place, and stay there
-            sys.stdout.write("\r" + new_line + "\033[K")  # \033[K clears to end of line
-            sys.stdout.flush()
-            time.sleep(1)
-    except KeyboardInterrupt:
-        # ANSI escape codes
-        CLEAR_EOL = '\033[K'       # tput el
-        CURSOR_START = '\r'        # tput cr
-        CLEAR_DOWN = '\033[J'      # tput ed
-        CURSOR_UP = lambda n: f'\033[{n}A'  # tput cuu N
-        
-        print(CLEAR_EOL + CURSOR_START, end='')
-        print(CURSOR_UP(2), end='')  # Move up 2 lines
-        print(CLEAR_DOWN, end='')    # Clear from cursor down
-        title_exit = f"[bright_white]{emoji} {title} — ❌ Task Canceled [/bright_white][bright_red][{timer_duration}, {category}][/bright_red]"
-        
-        panel_exit = Panel(
-            title_exit,
-            padding=(1, 4),      # (top_bottom, left_right) padding
-            border_style="red",
-            expand=False,        # Do not expand to full width
-            title="TIMER",
-            title_align="left"
-        )
-        console.print(panel_exit)
-        sys.exit()
+
+    def stopwatch(static_message=static_message):
+        try:
+            start_time = time.time()
+
+            while True:
+                elapsed = int(time.time() - start_time)
+                h = elapsed // 3600
+                m = (elapsed % 3600) // 60
+                s = elapsed % 60
+                time_str = f"{h:02}:{m:02}:{s:02}"
+
+                updated_text = f"{static_message} {time_str}  "
+                new_line = f"{Fore.CYAN}│{Style.RESET_ALL}   {updated_text}   {Fore.CYAN}│{Style.RESET_ALL}"
+
+                sys.stdout.write("\r" + new_line + "\033[K")
+                sys.stdout.flush()
+
+                if msvcrt.kbhit():
+                    key = msvcrt.getch()
+                    if key.lower() == b's':
+                        break
+
+                time.sleep(1)
+
+            elapsed_time = int(time.time() - start_time)
+
+            return h, m, s
+
+        except KeyboardInterrupt:
+            print("\033[K\r\033[2A\033[J", end='')  # Clear last 2 lines
+            title_exit = f"[bright_white]{emoji} {title} — ❌ Run Canceled [/bright_white][bright_red][{timer_duration}, {category}][/bright_red]"
+            panel_exit = Panel(title_exit, padding=(1, 4), border_style="red", expand=False, title="STOPWATCH", title_align="left")
+            console.print(panel_exit)
+            sys.exit()
+
+    def countdown():
+        try:
+            for remaining in range(total_seconds, -1, -1):
+                h = remaining // 3600
+                m = (remaining % 3600) // 60
+                s = remaining % 60
+                time_str = f"{h:02}:{m:02}:{s:02}"
+            
+                # Build updated timer text (same length to avoid flicker)
+                updated_text = f"{static_message} {time_str}  "
+            
+                # Create new line keeping the box borders intact by replacing text inside
+                new_line = f"{Fore.CYAN}│{Style.RESET_ALL}   {updated_text}   {Fore.CYAN}│{Style.RESET_ALL}"
+                # Overwrite the line in-place, and stay there
+                sys.stdout.write("\r" + new_line + "\033[K")  # \033[K clears to end of line
+                sys.stdout.flush()
+                time.sleep(1)
+        except KeyboardInterrupt:
+            # ANSI escape codes
+            CLEAR_EOL = '\033[K'       # tput el
+            CURSOR_START = '\r'        # tput cr
+            CLEAR_DOWN = '\033[J'      # tput ed
+            CURSOR_UP = lambda n: f'\033[{n}A'  # tput cuu N
+            
+            print(CLEAR_EOL + CURSOR_START, end='')
+            print(CURSOR_UP(2), end='')  # Move up 2 lines
+            print(CLEAR_DOWN, end='')    # Clear from cursor down
+            title_exit = f"[bright_white]{emoji} {title} — ❌ Task Canceled [/bright_white][bright_red][{timer_duration}, {category}][/bright_red]"
+            
+            panel_exit = Panel(
+                title_exit,
+                padding=(1, 4),      # (top_bottom, left_right) padding
+                border_style="red",
+                expand=False,        # Do not expand to full width
+                title="TIMER",
+                title_align="left"
+            )
+            console.print(panel_exit)
+            sys.exit()
+
+    if runner:
+        h, m, s = stopwatch()
+        timer_duration = readable_duration(h, m, s)
+        duration_str = f"{h:02}:{m:02}:{s:02}"
+        title_task = f"[bright_white]{emoji} {title} — 🕒 Run Recorded [/bright_white][cyan][{timer_duration}, {category}][/cyan]"
+    else:
+        countdown()
+        title_task = f"[bright_white]{emoji} {title} — 🎯 Task Achieved [/bright_white][cyan][{timer_duration}, {category}][/cyan]"
     
     # ANSI escape codes
     CLEAR_EOL = '\033[K'       # tput el
@@ -274,19 +345,20 @@ def main():
     print(CLEAR_EOL + CURSOR_START, end='')
     print(CURSOR_UP(2), end='')  # Move up 2 lines
     print(CLEAR_DOWN, end='')    # Clear from cursor down
-    
-    title_task = f"[bright_white]{emoji} {title} — 🎯 Task Achieved [/bright_white][cyan][{timer_duration}, {category}][/cyan]"
-    
+
+    title_panel = "RUNNER" if runner else "TIMER"
+    color_panel = "wheat4" if runner else "yellow"
+
     panel2 = Panel(
         title_task,
         padding=(1, 4),      # (top_bottom, left_right) padding
-        border_style="yellow",
+        border_style=color_panel,
         expand=False,        # Do not expand to full width
-        title="TIMER",
+        title=title_panel,
         title_align="left"
     )
     console.print(panel2)
-    
+
     # Check if file exists to write header
     file_exists = os.path.isfile(log_file)
     
