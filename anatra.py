@@ -56,15 +56,23 @@ import os
 import argparse
 import random
 import json
-from win11toast import toast
 from colorama import Fore, Style, init
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.align import Align
 from rich.table import Table
-import winsound
-import msvcrt
+
+# Custom script
+from notifier import show_notification
+import threading
+import platform
+
+# Only used on Unix
+if platform.system() != 'Windows':
+    import tty
+    import termios
+    import select
 
 init(autoreset=True)
 console = Console()
@@ -84,7 +92,7 @@ if not os.path.exists(log_folder):
     os.makedirs(log_folder)
 
 achievement_messages = [
-    ["🔥 Task on fire", "you crushed it", "fire-duck.gif"],
+    ["🔥 Task on fire", "you crushed it", "fire.gif"],
     ["🐸 Frog eaten", "that tough task is done", "frog.gif"],
     ["🌿 Growth recorded", "you're building habits", "herb.gif"],
     ["🍪 Focus complete", "here’s your cookie", "cookie.gif"],
@@ -114,6 +122,31 @@ def load_message_state():
 def save_message_state(state):
     with open(STATE_FILE, "w") as f:
         json.dump(state, f)
+
+
+def get_keypress(stop_event, key_buffer):
+    if platform.system() == 'Windows':
+        import msvcrt
+        while not stop_event.is_set():
+            if msvcrt.kbhit():
+                key = msvcrt.getch().decode('utf-8').lower()
+                key_buffer.append(key)
+                if key in ('s', 'x'):
+                    stop_event.set()
+    else:
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setcbreak(fd)
+            while not stop_event.is_set():
+                dr, dw, de = select.select([sys.stdin], [], [], 0.1)
+                if dr:
+                    key = sys.stdin.read(1).lower()
+                    key_buffer.append(key)
+                    if key in ('s', 'x'):
+                        stop_event.set()
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
 def main():
     runner = False
@@ -255,8 +288,13 @@ def main():
     def stopwatch(static_message=static_message):
         try:
             start_time = time.time()
+            stop_event = threading.Event()
+            key_buffer = []
+            # Start keypress listener thread
+            listener = threading.Thread(target=get_keypress, args=(stop_event, key_buffer), daemon=True)
+            listener.start()
 
-            while True:
+            while not stop_event.is_set():
                 elapsed = int(time.time() - start_time)
                 h = elapsed // 3600
                 m = (elapsed % 3600) // 60
@@ -268,16 +306,19 @@ def main():
 
                 sys.stdout.write("\r" + new_line + "\033[K")
                 sys.stdout.flush()
-
-                if msvcrt.kbhit():
-                    key = msvcrt.getch()
-                    if key.lower() == b's':
-                        break
-
                 time.sleep(1)
+                # Check if 's' key is pressed to stop
+                if key_buffer:
+                    key_pressed = key_buffer[0].lower()
+                    if key_pressed in ('s', 'x'):
+                        break
+                    else:
+                        key_buffer.clear()  # Ignore invalid key and continue
 
-            elapsed_time = int(time.time() - start_time)
-
+            elapsed = int(time.time() - start_time)
+            h = elapsed // 3600
+            m = (elapsed % 3600) // 60
+            s = elapsed % 60
             return h, m, s
 
         except KeyboardInterrupt:
@@ -369,32 +410,19 @@ def main():
         line = f'"{start_time}","{emoji}","{title}","{duration_str}","{category}"\n'
         f.write(line)
     
-    icon_path = os.path.join(base_dir, 'emojis', selected_message[2])
-    
-    icon = {
-        'src': icon_path,
-        'placement': 'appLogoOverride'
-    }
-    
-    content = f"{selected_message[1]} — {timer_duration}"
     def noop(*args, **kwargs):
         pass
+
+    icon_path = os.path.join(base_dir, 'emojis', selected_message[2])
+    content = f"{selected_message[1]} — {timer_duration}"
+    title = f"{emoji} {title}"
     
-    sound_path = os.path.join(base_dir, 'sound', 'pop.wav')
-    def duck(*args, **kwargs):
-        winsound.PlaySound(sound_path, winsound.SND_FILENAME | winsound.SND_ASYNC)
-        time.sleep(1)
-    
-    toast(
-        title=f"{emoji} {title}",
-        body=content,
-        icon=icon,
-        duration="long",
-        button=selected_message[0],
-        scenario='reminder',
-        on_click=duck,
-        on_dismissed=noop,
-        on_failed=noop
+    show_notification(
+        title_text=title,
+        message=content,
+        gif_path=icon_path,
+        button_text=selected_message[0],
+        beep=False
     )
 
 if __name__ == "__main__":
