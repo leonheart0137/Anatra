@@ -7,3 +7,6 @@ anatra.egg-info/
 .venv/
 env/
 venv/
+notes.txt
+emoji_cache/
+notifier copy.py

@@ -64,7 +64,8 @@ from rich.align import Align
 from rich.table import Table
 
 # Custom script
-from notifier import show_notification
+# from notifier import show_notification
+from notifier import Notifier
 import threading
 import platform
 
@@ -417,13 +418,22 @@ def main():
     content = f"{selected_message[1]} — {timer_duration}"
     title = f"{emoji} {title}"
     
-    show_notification(
-        title_text=title,
-        message=content,
-        gif_path=icon_path,
-        button_text=selected_message[0],
-        beep=False
-    )
+    # show_notification(
+    #     title_text=title,
+    #     message=content,
+    #     gif_path=icon_path,
+    #     button_text=selected_message[0],
+    #     beep=True
+    # )
+
+    notif = Notifier(
+    title=title,
+    message=content,
+    button=selected_message[0],
+    gif_path=icon_path,
+    beep=True
+)
+    notif.show()
 
 if __name__ == "__main__":
     main()
